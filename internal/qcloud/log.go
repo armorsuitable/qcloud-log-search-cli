@@ -31,7 +31,7 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 
 	endpoint := os.Getenv("QCLOUD_ENDPOINT")
 	if len(endpoint) == 0 {
-		endpoint = "internal.tencentcloudapi.com"
+		endpoint = "tencentcloudapi.com"
 	}
 
 	cpf := profile.NewClientProfile()
