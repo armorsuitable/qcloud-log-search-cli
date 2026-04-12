@@ -1,6 +1,7 @@
 package qcloud
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,15 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 )
+
+type QCloudLogTagFormat struct {
+	// Region string `json:"__REGION__"`
+}
+
+type QCloudLogJsonFormat struct {
+	Content string `json:"__CONTENT__"`
+	Tag     any    `json:"__TAG__"`
+}
 
 type QCloudLogSearchClientContext struct {
 	ApiClient *cls.Client
@@ -46,7 +56,7 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 	}
 }
 
-func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query string) []string {
+func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query string) []QCloudLogJsonFormat {
 	if len(periodFormat) == 0 {
 		periodFormat = "last15m"
 	}
@@ -63,7 +73,7 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 		startTime = startTime.Add(-1 * time.Hour)
 	case "last6h":
 		startTime = startTime.Add(-6 * time.Hour)
-	case "last1day":
+	case "last1d":
 		startTime = startTime.Add(-24 * time.Hour)
 	case "last7d":
 		startTime = startTime.Add(-7 * 24 * time.Hour)
@@ -97,13 +107,20 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 
 	if len(resp.Response.Results) == 0 {
 		log.Printf("not result log found.")
-		return []string{}
+		return []QCloudLogJsonFormat{}
 	}
 
-	logContent := make([]string, 0)
+	logContent := make([]QCloudLogJsonFormat, 0)
 
 	for _, result := range resp.Response.Results {
-		logContent = append(logContent, *result.LogJson)
+		// logContent = append(logContent, *result.LogJson)
+		var logFormat QCloudLogJsonFormat
+		unmarshalErr := json.Unmarshal([]byte(*result.LogJson), &logFormat)
+		if unmarshalErr != nil {
+			log.Printf("Failed to unmarshal log JSON: %v", unmarshalErr)
+			continue
+		}
+		logContent = append(logContent, logFormat)
 	}
 
 	return logContent
