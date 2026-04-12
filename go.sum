@@ -1,0 +1,8 @@
+github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
+github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cls v1.3.71 h1:tt4d8nr/YiBsVOwUzmUm3AFDNG7QjP5gb++Kr/ivf+0=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cls v1.3.71/go.mod h1:K3e39BcJnCNbJdhVxc3lZgoBsQj8a+EI/NQmKBBBWlc=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.71 h1:8tFF0fuSlrSD/1vTrEBYdmpc3D9wcxGyHo/7uIJxq+I=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.71/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
