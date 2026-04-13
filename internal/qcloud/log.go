@@ -2,11 +2,13 @@ package qcloud
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/manifoldco/promptui"
 	cls "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cls/v20201016"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -15,8 +17,10 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-type QCloudLogTagFormat struct {
-	// Region string `json:"__REGION__"`
+type QCloudLogQuery struct {
+	Keyword string
+	Period  string
+	TopicId string
 }
 
 type QCloudLogJsonFormat struct {
@@ -25,7 +29,8 @@ type QCloudLogJsonFormat struct {
 }
 
 type QCloudLogSearchClientContext struct {
-	ApiClient *cls.Client
+	ApiClient           *cls.Client
+	InteractiveArgModel bool
 }
 
 func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
@@ -51,8 +56,11 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 		log.Fatal(initErr)
 	}
 
+	interactiveArgModel := os.Getenv("INTERACTIVE_PARAM_MODE") == "true"
+
 	return &QCloudLogSearchClientContext{
-		ApiClient: client,
+		ApiClient:           client,
+		InteractiveArgModel: interactiveArgModel,
 	}
 }
 
@@ -124,4 +132,63 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 	}
 
 	return logContent
+}
+
+func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
+	topicId := os.Getenv("QCLOUD_TOPIC_ID")
+	if len(topicId) == 0 {
+		log.Fatal("QCLOUD_TOPIC_ID environment variable is not set")
+	}
+
+	if c.InteractiveArgModel {
+		validate := func(keywordQuery string) error {
+			if len(keywordQuery) == 0 {
+				return fmt.Errorf("keyword query cannot be empty")
+			}
+			return nil
+		}
+
+		prompt := promptui.Prompt{
+			Label:    "Query keyword",
+			Validate: validate,
+		}
+
+		keywordQuery, err := prompt.Run()
+		if err != nil {
+			log.Fatalf("Prompt failed %v\n", err)
+		}
+
+		periodPrompt := promptui.Select{
+			Label: "Select period format",
+			Items: []string{
+				"last15m",
+				"last1h",
+				"last6h",
+				"last1d",
+				"last7d",
+			},
+		}
+
+		_, periodResult, err := periodPrompt.Run()
+		if err != nil {
+			log.Fatalf("Prompt failed %v\n", err)
+		}
+
+		return QCloudLogQuery{
+			Keyword: keywordQuery,
+			Period:  periodResult,
+			TopicId: topicId,
+		}
+	}
+
+	query := flag.String("query", "", "Search keyword for query")
+	period := flag.String("period", "last15m", "Time period for log search (e.g., last15m, last1h, last6h, last1d, last7d)")
+	paramTopicId := flag.String("topicId", topicId, "QCloud CLS Topic ID")
+	flag.Parse()
+
+	return QCloudLogQuery{
+		Keyword: *query,
+		Period:  *period,
+		TopicId: *paramTopicId,
+	}
 }
