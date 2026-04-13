@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 
-	fmt.Printf("period: %s keyword: %s\n", periodResult, keywordQuery)
+	// fmt.Printf("period: %s keyword: %s\n", periodResult, keywordQuery)
 
 	topicId := os.Getenv("QCLOUD_TOPIC_ID")
 	// fmt.Println(topicId)
