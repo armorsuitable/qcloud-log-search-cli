@@ -111,7 +111,7 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 		log.Fatal(searErr)
 	}
 
-	log.Printf("logSearch response:%s", resp.ToJsonString())
+	// log.Printf("logSearch response:%s", resp.ToJsonString())
 
 	if len(resp.Response.Results) == 0 {
 		log.Printf("not result log found.")
