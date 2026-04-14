@@ -7,13 +7,12 @@ import (
 )
 
 func main() {
-
 	client := qcloud.NewQCloudLogSearchClientContext()
-	param := client.CreateCliParameter()
-	contents := client.SearchLogs(param.TopicId, param.Period, param.Keyword)
+	argument := client.CreateCliParameter()
+	contents := client.SearchLogs(argument)
 
 	for _, content := range contents {
-		highlighted := highlightKeyword(content.Content, param.Keyword)
+		highlighted := highlightKeyword(content.Content, argument.Keyword)
 		fmt.Println(highlighted)
 	}
 }

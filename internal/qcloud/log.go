@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/manifoldco/promptui"
@@ -21,6 +22,9 @@ type QCloudLogQuery struct {
 	Keyword string
 	Period  string
 	TopicId string
+
+	SortType string
+	LogLimit int64
 }
 
 type QCloudLogJsonFormat struct {
@@ -64,9 +68,9 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 	}
 }
 
-func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query string) []QCloudLogJsonFormat {
-	if len(periodFormat) == 0 {
-		periodFormat = "last15m"
+func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloudLogJsonFormat {
+	if len(query.Period) == 0 {
+		query.Period = "last15m"
 	}
 
 	utc8, _ := time.LoadLocation("Asia/Shanghai")
@@ -74,7 +78,7 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 	endStr := time.Now().Format(time.DateTime)
 	endTimeStamp, _ := time.ParseInLocation(time.DateTime, endStr, utc8)
 
-	switch periodFormat {
+	switch query.Period {
 	case "last15m":
 		startTime = startTime.Add(-15 * time.Minute)
 	case "last1h":
@@ -86,7 +90,7 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 	case "last7d":
 		startTime = startTime.Add(-7 * 24 * time.Hour)
 	default:
-		log.Printf("Unsupported period format: %s. Defaulting to last15m.", periodFormat)
+		log.Printf("Unsupported period format: %s. Defaulting to last15m.", query.Period)
 		startTime = startTime.Add(-15 * time.Minute)
 	}
 
@@ -95,16 +99,16 @@ func (c *QCloudLogSearchClientContext) SearchLogs(topicId, periodFormat, query s
 
 	f := startTimeStamp.UnixMilli()
 	t := endTimeStamp.UnixMilli()
-	sort := "asc"
-	limit := int64(500)
+	// sort := "asc"
+	// limit := int64(500)
 
 	logReq := cls.NewSearchLogRequest()
-	logReq.TopicId = common.StringPtr(topicId)
+	logReq.TopicId = common.StringPtr(query.TopicId)
 	logReq.From = &f
 	logReq.To = &t
-	logReq.Query = common.StringPtr(query)
-	logReq.Sort = common.StringPtr(sort)
-	logReq.Limit = &limit
+	logReq.Query = common.StringPtr(query.Keyword)
+	logReq.Sort = common.StringPtr(query.SortType)
+	logReq.Limit = &query.LogLimit
 
 	resp, searErr := c.ApiClient.SearchLog(logReq)
 	if searErr != nil {
@@ -138,6 +142,12 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 	topicId := os.Getenv("QCLOUD_TOPIC_ID")
 	if len(topicId) == 0 {
 		log.Fatal("QCLOUD_TOPIC_ID environment variable is not set")
+	}
+
+	logLimitStr := os.Getenv("QUERY_LOG_LIMIT")
+	logLimit := int64(500) // default log limit
+	if len(logLimitStr) != 0 {
+		logLimit, _ = strconv.ParseInt(logLimitStr, 10, 32)
 	}
 
 	if c.InteractiveArgModel {
@@ -174,21 +184,42 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 			log.Fatalf("Prompt failed %v\n", err)
 		}
 
+		sortPrompt := promptui.Prompt{
+			Label: "Sort type (asc/desc), default asc",
+			Validate: func(s string) error {
+				if s != "asc" && s != "desc" && len(s) != 0 {
+					return fmt.Errorf("invalid sort type, must be 'asc', 'desc', or empty for default")
+				}
+				return nil
+			},
+		}
+
+		sortResult, err := sortPrompt.Run()
+		if err != nil {
+			log.Fatalf("Prompt failed %v\n", err)
+		}
+
 		return QCloudLogQuery{
-			Keyword: keywordQuery,
-			Period:  periodResult,
-			TopicId: topicId,
+			Keyword:  keywordQuery,
+			Period:   periodResult,
+			TopicId:  topicId,
+			SortType: sortResult,
+			LogLimit: logLimit,
 		}
 	}
 
 	query := flag.String("query", "", "Search keyword for query")
 	period := flag.String("period", "last15m", "Time period for log search (e.g., last15m, last1h, last6h, last1d, last7d)")
 	paramTopicId := flag.String("topicId", topicId, "QCloud CLS Topic ID")
+	sortType := flag.String("sort", "asc", "Sort type for log search (asc or desc)")
 	flag.Parse()
 
 	return QCloudLogQuery{
 		Keyword: *query,
 		Period:  *period,
 		TopicId: *paramTopicId,
+
+		SortType: *sortType,
+		LogLimit: logLimit,
 	}
 }
