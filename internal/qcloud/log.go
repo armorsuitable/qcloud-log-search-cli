@@ -2,7 +2,6 @@ package qcloud
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -170,13 +169,7 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 
 		periodPrompt := promptui.Select{
 			Label: "Select period format",
-			Items: []string{
-				"last15m",
-				"last1h",
-				"last6h",
-				"last1d",
-				"last7d",
-			},
+			Items: QueryPeriod,
 		}
 
 		_, periodResult, err := periodPrompt.Run()
@@ -199,8 +192,12 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 			log.Fatalf("Prompt failed %v\n", err)
 		}
 
+		if len(sortResult) == 0 {
+			sortResult = "asc"
+		}
+
 		return QCloudLogQuery{
-			Keyword:  keywordQuery,
+			Keyword:  convertAndQuery(keywordQuery),
 			Period:   periodResult,
 			TopicId:  topicId,
 			SortType: sortResult,
@@ -208,18 +205,5 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 		}
 	}
 
-	query := flag.String("query", "", "Search keyword for query")
-	period := flag.String("period", "last15m", "Time period for log search (e.g., last15m, last1h, last6h, last1d, last7d)")
-	paramTopicId := flag.String("topicId", topicId, "QCloud CLS Topic ID")
-	sortType := flag.String("sort", "asc", "Sort type for log search (asc or desc)")
-	flag.Parse()
-
-	return QCloudLogQuery{
-		Keyword: *query,
-		Period:  *period,
-		TopicId: *paramTopicId,
-
-		SortType: *sortType,
-		LogLimit: logLimit,
-	}
+	return NonInteractiveCommandLineQuery(topicId, logLimit)
 }
