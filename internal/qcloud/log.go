@@ -29,6 +29,11 @@ type QCloudLogQuery struct {
 type QCloudLogJsonFormat struct {
 	Content string `json:"__CONTENT__"`
 	Tag     any    `json:"__TAG__"`
+
+	LogTimeStr   string
+	LogTime      int64
+	PackageId    *string
+	PackageLogId *string
 }
 
 type QCloudApiRequestFormat struct {
@@ -42,6 +47,7 @@ type QCloudApiRequestFormat struct {
 type QCloudLogSearchClientContext struct {
 	ApiClient           *cls.Client
 	InteractiveArgModel bool
+	LogContextEnable    bool
 }
 
 func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
@@ -68,10 +74,12 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 	}
 
 	interactiveArgModel := os.Getenv("INTERACTIVE_PARAM_MODE") == "true"
+	logContextEnable := os.Getenv("LOG_CONTEXT_ENABLE") == "true"
 
 	return &QCloudLogSearchClientContext{
 		ApiClient:           client,
 		InteractiveArgModel: interactiveArgModel,
+		LogContextEnable:    logContextEnable,
 	}
 }
 
@@ -141,6 +149,11 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 			log.Printf("Failed to unmarshal log JSON: %v", unmarshalErr)
 			continue
 		}
+		logFormat.LogTime = *result.Time
+		logFormat.LogTimeStr = time.UnixMilli(*result.Time).Format(time.DateTime)
+		logFormat.PackageId = result.PkgId
+		logFormat.PackageLogId = result.PkgLogId
+
 		logContent = append(logContent, logFormat)
 	}
 
