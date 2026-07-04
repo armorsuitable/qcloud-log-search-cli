@@ -10,8 +10,6 @@ func main() {
 	client := qcloud.NewQCloudLogSearchClientContext()
 	argument := client.CreateCliParameter()
 
-	fmt.Printf("%v\n", argument)
-
 	contents := client.SearchLogs(argument)
 
 	for _, content := range contents {

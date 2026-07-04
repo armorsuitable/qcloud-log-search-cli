@@ -31,6 +31,14 @@ type QCloudLogJsonFormat struct {
 	Tag     any    `json:"__TAG__"`
 }
 
+type QCloudApiRequestFormat struct {
+	Region    string
+	Action    string
+	RequestId string
+	Uin       string
+	AppId     int64
+}
+
 type QCloudLogSearchClientContext struct {
 	ApiClient           *cls.Client
 	InteractiveArgModel bool
@@ -137,6 +145,7 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 	return logContent
 }
 
+// Create parameter structure for log search
 func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 	topicId := os.Getenv("QCLOUD_TOPIC_ID")
 	if len(topicId) == 0 {
