@@ -96,6 +96,8 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 		startTime = startTime.Add(-24 * time.Hour)
 	case "last7d":
 		startTime = startTime.Add(-7 * 24 * time.Hour)
+	case "last30d":
+		startTime = startTime.Add(-30 * 24 * time.Hour)
 	default:
 		log.Printf("Unsupported period format: %s. Defaulting to last15m.", query.Period)
 		startTime = startTime.Add(-15 * time.Minute)
