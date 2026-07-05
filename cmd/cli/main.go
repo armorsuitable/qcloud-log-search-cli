@@ -16,12 +16,16 @@ func main() {
 		highlighted := highlightKeyword(content.Content, argument.Keyword)
 
 		if client.LogContextEnable {
-			fmt.Printf("%s | %s | PkgId:%s, PkgLogId:%s, Time:%d\n",
-				content.LogTimeStr,
-				highlighted,
-				*content.PackageId,
-				*content.PackageLogId,
-				content.LogTime)
+			if argument.QueryLogContext {
+				fmt.Println(content.Content)
+			} else {
+				fmt.Printf("%s | %s | PkgId:%s, PkgLogId:%s, Time:%d\n",
+					content.LogTimeStr,
+					highlighted,
+					*content.PackageId,
+					*content.PackageLogId,
+					content.LogTime)
+			}
 		} else {
 			fmt.Printf("%s %s\n",
 				content.LogTimeStr,

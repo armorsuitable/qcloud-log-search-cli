@@ -161,8 +161,16 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 
 		logContent := make([]QCloudLogJsonFormat, 0)
 		for _, result := range resp.Response.LogContextInfos {
+
+			var logFormat QCloudLogJsonFormat
+			unmarshalErr := json.Unmarshal([]byte(*result.Content), &logFormat)
+			if unmarshalErr != nil {
+				log.Printf("Failed to unmarshal log JSON: %v", unmarshalErr)
+				continue
+			}
+
 			logContent = append(logContent, QCloudLogJsonFormat{
-				Content:    *result.Content,
+				Content:    logFormat.Content,
 				LogTime:    0,
 				LogTimeStr: "",
 			})
