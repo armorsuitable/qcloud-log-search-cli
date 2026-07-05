@@ -24,11 +24,21 @@ type QCloudLogQuery struct {
 
 	SortType string
 	LogLimit int64
+
+	PackageId       string
+	PackageLogId    int64
+	PackageLogTime  string
+	QueryLogContext bool
 }
 
 type QCloudLogJsonFormat struct {
 	Content string `json:"__CONTENT__"`
 	Tag     any    `json:"__TAG__"`
+
+	LogTimeStr   string
+	LogTime      int64
+	PackageId    *string
+	PackageLogId *string
 }
 
 type QCloudApiRequestFormat struct {
@@ -42,6 +52,7 @@ type QCloudApiRequestFormat struct {
 type QCloudLogSearchClientContext struct {
 	ApiClient           *cls.Client
 	InteractiveArgModel bool
+	LogContextEnable    bool
 }
 
 func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
@@ -68,10 +79,12 @@ func NewQCloudLogSearchClientContext() *QCloudLogSearchClientContext {
 	}
 
 	interactiveArgModel := os.Getenv("INTERACTIVE_PARAM_MODE") == "true"
+	logContextEnable := os.Getenv("LOG_CONTEXT_ENABLE") == "true"
 
 	return &QCloudLogSearchClientContext{
 		ApiClient:           client,
 		InteractiveArgModel: interactiveArgModel,
+		LogContextEnable:    logContextEnable,
 	}
 }
 
@@ -96,6 +109,8 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 		startTime = startTime.Add(-24 * time.Hour)
 	case "last7d":
 		startTime = startTime.Add(-7 * 24 * time.Hour)
+	case "last30d":
+		startTime = startTime.Add(-30 * 24 * time.Hour)
 	default:
 		log.Printf("Unsupported period format: %s. Defaulting to last15m.", query.Period)
 		startTime = startTime.Add(-15 * time.Minute)
@@ -116,6 +131,53 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 	logReq.Query = common.StringPtr(query.Keyword)
 	logReq.Sort = common.StringPtr(query.SortType)
 	logReq.Limit = &query.LogLimit
+
+	if query.QueryLogContext {
+		logCtx := cls.NewDescribeLogContextRequest()
+
+		nextLogs := int64(100)
+		preLogs := int64(100)
+
+		logCtx.PkgId = common.StringPtr(query.PackageId)
+		logCtx.PkgLogId = common.Int64Ptr(query.PackageLogId)
+		logCtx.BTime = common.StringPtr(query.PackageLogTime)
+		logCtx.TopicId = common.StringPtr(query.TopicId)
+		logCtx.NextLogs = common.Int64Ptr(nextLogs)
+		logCtx.PrevLogs = common.Int64Ptr(preLogs)
+
+		logCtx.From = common.Uint64Ptr(uint64(f))
+		logCtx.To = common.Uint64Ptr(uint64(t))
+		logCtx.Query = common.StringPtr("")
+
+		resp, searErr := c.ApiClient.DescribeLogContext(logCtx)
+		if searErr != nil {
+			log.Fatal(searErr)
+		}
+
+		if len(resp.Response.LogContextInfos) == 0 {
+			log.Printf("not result log found.")
+			return []QCloudLogJsonFormat{}
+		}
+
+		logContent := make([]QCloudLogJsonFormat, 0)
+		for _, result := range resp.Response.LogContextInfos {
+
+			var logFormat QCloudLogJsonFormat
+			unmarshalErr := json.Unmarshal([]byte(*result.Content), &logFormat)
+			if unmarshalErr != nil {
+				log.Printf("Failed to unmarshal log JSON: %v", unmarshalErr)
+				continue
+			}
+
+			logContent = append(logContent, QCloudLogJsonFormat{
+				Content:    logFormat.Content,
+				LogTime:    0,
+				LogTimeStr: "",
+			})
+		}
+
+		return logContent
+	}
 
 	resp, searErr := c.ApiClient.SearchLog(logReq)
 	if searErr != nil {
@@ -139,6 +201,11 @@ func (c *QCloudLogSearchClientContext) SearchLogs(query QCloudLogQuery) []QCloud
 			log.Printf("Failed to unmarshal log JSON: %v", unmarshalErr)
 			continue
 		}
+		logFormat.LogTime = *result.Time
+		logFormat.LogTimeStr = time.UnixMilli(*result.Time).Format(time.DateTime)
+		logFormat.PackageId = result.PkgId
+		logFormat.PackageLogId = result.PkgLogId
+
 		logContent = append(logContent, logFormat)
 	}
 
@@ -203,6 +270,96 @@ func (c *QCloudLogSearchClientContext) CreateCliParameter() QCloudLogQuery {
 
 		if len(sortResult) == 0 {
 			sortResult = "asc"
+		}
+
+		logContextPrompt := promptui.Prompt{
+			Label: "Enable log context (true/false), default false",
+			Validate: func(s string) error {
+				if s != "true" && s != "false" && len(s) != 0 {
+					return fmt.Errorf("invalid log context value, must be 'true', 'false', or empty for default")
+				}
+				return nil
+			},
+		}
+
+		logContextResult, err := logContextPrompt.Run()
+		if err != nil {
+			log.Fatalf("Prompt failed %v\n", err)
+		}
+
+		if logContextResult == "true" {
+			//
+			validate := func(packageId string) error {
+				if len(packageId) == 0 {
+					return fmt.Errorf("package ID cannot be empty")
+				}
+				return nil
+			}
+
+			packageIdPrompt := promptui.Prompt{
+				Label:    "PackageId",
+				Validate: validate,
+			}
+
+			packageId, packageIdErr := packageIdPrompt.Run()
+			if packageIdErr != nil {
+				log.Fatalf("Prompt packageId failed %v\n", packageIdErr)
+			}
+
+			packageLogIdPrompt := promptui.Prompt{
+				Label:    "PackageLogId",
+				Validate: validate,
+			}
+
+			packageLogId, packageLogIdErr := packageLogIdPrompt.Run()
+			if packageLogIdErr != nil {
+				log.Fatalf("Prompt packageLogId failed %v\n", packageLogIdErr)
+			}
+
+			packageLogTimePrompt := promptui.Prompt{
+				Label: "PackageLogTime (Unix timestamp in milliseconds)",
+				Validate: func(s string) error {
+					if len(s) == 0 {
+						return fmt.Errorf("package log time cannot be empty")
+					}
+					_, err := strconv.ParseInt(s, 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid package log time, must be a valid Unix timestamp in milliseconds")
+					}
+					return nil
+				},
+			}
+
+			packageLogTime, packageLogTimeErr := packageLogTimePrompt.Run()
+			if packageLogTimeErr != nil {
+				log.Fatalf("Prompt packageLogTime failed %v\n", packageLogTimeErr)
+			}
+
+			bTime, bTimeErr := strconv.ParseInt(packageLogTime, 10, 64)
+			if bTimeErr != nil {
+				log.Fatalf("Failed to parse package log time %v\n", bTimeErr)
+			}
+
+			if bTime < 0 {
+				log.Fatalf("Invalid package log time: %d. Must be a non-negative Unix timestamp in milliseconds.\n", bTime)
+			}
+
+			timeStr := time.UnixMilli(bTime).Format("2006-01-02 15:04:05.000")
+
+			packageLogIdInt, parseIntErr := strconv.ParseInt(packageLogId, 10, 64)
+			if parseIntErr != nil {
+				log.Fatalf("Failed to parse package log ID %v\n", parseIntErr)
+			}
+
+			return QCloudLogQuery{
+				Period:          periodResult,
+				TopicId:         topicId,
+				SortType:        sortResult,
+				PackageId:       packageId,
+				PackageLogId:    packageLogIdInt,
+				PackageLogTime:  timeStr,
+				QueryLogContext: true,
+			}
 		}
 
 		return QCloudLogQuery{

@@ -14,7 +14,23 @@ func main() {
 
 	for _, content := range contents {
 		highlighted := highlightKeyword(content.Content, argument.Keyword)
-		fmt.Println(highlighted)
+
+		if client.LogContextEnable {
+			if argument.QueryLogContext {
+				fmt.Println(content.Content)
+			} else {
+				fmt.Printf("%s | %s | PkgId:%s, PkgLogId:%s, Time:%d\n",
+					content.LogTimeStr,
+					highlighted,
+					*content.PackageId,
+					*content.PackageLogId,
+					content.LogTime)
+			}
+		} else {
+			fmt.Printf("%s %s\n",
+				content.LogTimeStr,
+				highlighted)
+		}
 	}
 }
 
