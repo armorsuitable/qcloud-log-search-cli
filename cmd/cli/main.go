@@ -16,7 +16,7 @@ func main() {
 		highlighted := highlightKeyword(content.Content, argument.Keyword)
 
 		if client.LogContextEnable {
-			fmt.Printf("%s %s | PkgId: %s, PkgLogId: %s, Time: %d\n",
+			fmt.Printf("%s | %s | PkgId:%s, PkgLogId:%s, Time:%d\n",
 				content.LogTimeStr,
 				highlighted,
 				*content.PackageId,
@@ -27,7 +27,6 @@ func main() {
 				content.LogTimeStr,
 				highlighted)
 		}
-
 	}
 }
 
